@@ -1,0 +1,221 @@
+@page "/"
+@attribute [Authorize]
+@inject IUserService UserService
+@inject ISnackbar Snackbar
+
+<PageTitle>Dashboard - Leave Management</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_dashboard != null)
+{
+    <MudGrid>
+        <!-- Summary Cards -->
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Pending Approvals</MudText>
+                        <MudText Typo="Typo.h4">@_dashboard.PendingApprovalsCount</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.PendingActions" Size="Size.Large" Color="Color.Warning" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">My Pending Requests</MudText>
+                        <MudText Typo="Typo.h4">@_dashboard.MyPendingRequestsCount</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Large" Color="Color.Info" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Team On Leave Today</MudText>
+                        <MudText Typo="Typo.h4">@_dashboard.TeamOnLeaveToday</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.BeachAccess" Size="Size.Large" Color="Color.Success" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Upcoming Leaves</MudText>
+                        <MudText Typo="Typo.h4">@_dashboard.UpcomingEvents.Count</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Large" Color="Color.Primary" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Balances -->
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">My Leave Balances</MudText>
+                @if (_dashboard.MyBalances.Any())
+                {
+                    @foreach (var balance in _dashboard.MyBalances)
+                    {
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                         Style="@($"color: {balance.ActivityTypeColor ?? "#2196F3"}")"
+                                         Size="Size.Small" />
+                                <MudText>@balance.ActivityTypeName</MudText>
+                            </MudStack>
+                            <MudText>
+                                <strong>@balance.AvailableDays.ToString("0.#")</strong> / @balance.TotalDays.ToString("0.#") days
+                            </MudText>
+                        </MudStack>
+                        <MudProgressLinear Value="@GetBalancePercentage(balance)"
+                                          Color="@GetBalanceColor(balance)"
+                                          Class="mb-2" />
+                    }
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">No balances configured</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Pending Approvals -->
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudText Typo="Typo.h6">Pending Approvals</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/approvals">View All</MudButton>
+                </MudStack>
+                @if (_dashboard.PendingApprovals.Any())
+                {
+                    <MudList T="string" Dense="true">
+                        @foreach (var request in _dashboard.PendingApprovals.Take(5))
+                        {
+                            <MudListItem>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" Style="width: 100%">
+                                    <div>
+                                        <MudText Typo="Typo.body2">@request.UserName</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @request.ActivityTypeName - @request.StartDate.ToString("MMM d") to @request.EndDate.ToString("MMM d")
+                                        </MudText>
+                                    </div>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">Pending</MudChip>
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">No pending approvals</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Recent Requests -->
+        <MudItem xs="12">
+            <MudPaper Class="pa-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                    <MudText Typo="Typo.h6">Recent Requests</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/requests">View All</MudButton>
+                </MudStack>
+                @if (_dashboard.RecentRequests.Any())
+                {
+                    <MudTable Items="@_dashboard.RecentRequests" Hover="true" Dense="true">
+                        <HeaderContent>
+                            <MudTh>Request #</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh>Dates</MudTh>
+                            <MudTh>Days</MudTh>
+                            <MudTh>Status</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.RequestNumber</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Size="Size.Small"
+                                         Style="@($"background-color: {context.ActivityTypeColor ?? "#2196F3"}; color: white")">
+                                    @context.ActivityTypeName
+                                </MudChip>
+                            </MudTd>
+                            <MudTd>@context.StartDate.ToString("MMM d") - @context.EndDate.ToString("MMM d, yyyy")</MudTd>
+                            <MudTd>@context.TotalDays.ToString("0.#")</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.StatusName)">
+                                    @context.StatusName
+                                </MudChip>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">No recent requests</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private DashboardDto? _dashboard;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _dashboard = await UserService.GetDashboardAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading dashboard: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private double GetBalancePercentage(UserBalanceDto balance)
+    {
+        if (balance.TotalDays == 0) return 0;
+        var used = balance.UsedDays + balance.PendingDays;
+        return Math.Min(100, (double)(used / balance.TotalDays) * 100);
+    }
+
+    private Color GetBalanceColor(UserBalanceDto balance)
+    {
+        var percentage = GetBalancePercentage(balance);
+        if (percentage >= 90) return Color.Error;
+        if (percentage >= 70) return Color.Warning;
+        return Color.Success;
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Approved" => Color.Success,
+            "Pending" => Color.Warning,
+            "Rejected" => Color.Error,
+            "Cancelled" => Color.Default,
+            "Draft" => Color.Info,
+            _ => Color.Default
+        };
+    }
+}

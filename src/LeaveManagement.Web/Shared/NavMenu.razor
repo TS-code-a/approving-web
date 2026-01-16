@@ -1,0 +1,39 @@
+@inject IAuthService AuthService
+
+<MudNavMenu>
+    <MudText Typo="Typo.h6" Class="px-4 py-3">Navigation</MudText>
+    <MudDivider Class="mb-2" />
+
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    <MudNavGroup Title="Leave Requests" Icon="@Icons.Material.Filled.EventNote" Expanded="true">
+        <MudNavLink Href="/requests" Icon="@Icons.Material.Filled.List">My Requests</MudNavLink>
+        <MudNavLink Href="/requests/new" Icon="@Icons.Material.Filled.Add">New Request</MudNavLink>
+    </MudNavGroup>
+
+    <AuthorizeView Roles="Manager,SystemAdmin,HRViewer">
+        <MudNavGroup Title="Approvals" Icon="@Icons.Material.Filled.Approval" Expanded="true">
+            <MudNavLink Href="/approvals" Icon="@Icons.Material.Filled.PendingActions">Pending Approvals</MudNavLink>
+            <MudNavLink Href="/team" Icon="@Icons.Material.Filled.Group">Team Requests</MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <MudNavLink Href="/calendar" Icon="@Icons.Material.Filled.CalendarMonth">
+        Calendar
+    </MudNavLink>
+
+    <MudNavLink Href="/balances" Icon="@Icons.Material.Filled.AccountBalance">
+        My Balances
+    </MudNavLink>
+
+    <AuthorizeView Roles="SystemAdmin,CompanyAdmin">
+        <MudNavGroup Title="Administration" Icon="@Icons.Material.Filled.AdminPanelSettings">
+            <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
+            <MudNavLink Href="/admin/activity-types" Icon="@Icons.Material.Filled.Category">Activity Types</MudNavLink>
+            <MudNavLink Href="/admin/companies" Icon="@Icons.Material.Filled.Business">Companies</MudNavLink>
+            <MudNavLink Href="/admin/holidays" Icon="@Icons.Material.Filled.Celebration">Holidays</MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+</MudNavMenu>

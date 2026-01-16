@@ -1,0 +1,155 @@
+@page "/approvals"
+@attribute [Authorize(Roles = "Manager,SystemAdmin,HRViewer")]
+@inject ILeaveRequestService LeaveRequestService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Pending Approvals - Leave Management</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Pending Approvals</MudText>
+
+<MudPaper Class="pa-4">
+    @if (_isLoading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!_requests.Any())
+    {
+        <MudAlert Severity="Severity.Info">
+            No pending approvals at this time.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable Items="@_requests" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Request #</MudTh>
+                <MudTh>Employee</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh>Dates</MudTh>
+                <MudTh>Days</MudTh>
+                <MudTh>Reason</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Request #">@context.RequestNumber</MudTd>
+                <MudTd DataLabel="Employee">
+                    <MudStack>
+                        <MudText Typo="Typo.body2">@context.UserName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.UserDepartment</MudText>
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Type">
+                    <MudChip T="string" Size="Size.Small"
+                             Style="@($"background-color: {context.ActivityTypeColor ?? "#2196F3"}; color: white")">
+                        @context.ActivityTypeName
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Dates">
+                    @context.StartDate.ToString("MMM d") - @context.EndDate.ToString("MMM d, yyyy")
+                </MudTd>
+                <MudTd DataLabel="Days">@context.TotalDays.ToString("0.#")</MudTd>
+                <MudTd DataLabel="Reason">
+                    <MudTooltip Text="@context.Reason">
+                        <MudText Typo="Typo.body2" Style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            @(context.Reason ?? "N/A")
+                        </MudText>
+                    </MudTooltip>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudStack Row="true" Spacing="1">
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                                   OnClick="@(() => ApproveRequest(context))">
+                            Approve
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+                                   OnClick="@(() => RejectRequest(context))">
+                            Reject
+                        </MudButton>
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private List<LeaveRequestDto> _requests = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPendingApprovals();
+    }
+
+    private async Task LoadPendingApprovals()
+    {
+        _isLoading = true;
+        try
+        {
+            _requests = await LeaveRequestService.GetPendingApprovalsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading approvals: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ApproveRequest(LeaveRequestDto request)
+    {
+        var parameters = new DialogParameters<ApprovalDialog>
+        {
+            { x => x.Title, "Approve Request" },
+            { x => x.Message, $"Are you sure you want to approve the leave request from {request.UserName}?" },
+            { x => x.IsApproval, true }
+        };
+
+        var dialog = await DialogService.ShowAsync<ApprovalDialog>("Approve Request", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is string comment)
+        {
+            try
+            {
+                await LeaveRequestService.ApproveRequestAsync(request.Id, comment);
+                Snackbar.Add("Request approved successfully", Severity.Success);
+                await LoadPendingApprovals();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error approving request: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task RejectRequest(LeaveRequestDto request)
+    {
+        var parameters = new DialogParameters<ApprovalDialog>
+        {
+            { x => x.Title, "Reject Request" },
+            { x => x.Message, $"Are you sure you want to reject the leave request from {request.UserName}?" },
+            { x => x.IsApproval, false }
+        };
+
+        var dialog = await DialogService.ShowAsync<ApprovalDialog>("Reject Request", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is string comment)
+        {
+            try
+            {
+                await LeaveRequestService.RejectRequestAsync(request.Id, comment);
+                Snackbar.Add("Request rejected", Severity.Info);
+                await LoadPendingApprovals();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error rejecting request: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

@@ -1,0 +1,147 @@
+html, body {
+    font-family: 'Roboto', sans-serif;
+}
+
+.loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+.blazor-error-boundary {
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ni42MDYgNTIuMjY1OEwyODcuMzM0IDcyLjk5NjQgMj## Dashboard Card Styles
+.dashboard-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* Status badges */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-pending { background-color: #FFF3E0; color: #E65100; }
+.status-approved { background-color: #E8F5E9; color: #2E7D32; }
+.status-rejected { background-color: #FFEBEE; color: #C62828; }
+.status-cancelled { background-color: #ECEFF1; color: #546E7A; }
+.status-draft { background-color: #E3F2FD; color: #1565C0; }
+
+/* Calendar styles */
+.calendar-day {
+    min-height: 100px;
+    border: 1px solid #e0e0e0;
+    padding: 8px;
+}
+
+.calendar-day.today {
+    background-color: #E3F2FD;
+}
+
+.calendar-day.weekend {
+    background-color: #FAFAFA;
+}
+
+.calendar-event {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Navigation */
+.nav-link-active {
+    background-color: rgba(var(--mud-palette-primary-rgb), 0.1) !important;
+    border-left: 3px solid var(--mud-palette-primary) !important;
+}
+
+/* Form styles */
+.form-section {
+    background-color: #FAFAFA;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+/* Timeline for approval chain */
+.approval-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.approval-timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #E0E0E0;
+}
+
+.approval-step {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.approval-step::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #9E9E9E;
+}
+
+.approval-step.pending::before { background-color: #FF9800; }
+.approval-step.approved::before { background-color: #4CAF50; }
+.approval-step.rejected::before { background-color: #F44336; }

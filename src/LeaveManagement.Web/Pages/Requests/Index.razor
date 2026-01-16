@@ -1,0 +1,160 @@
+@page "/requests"
+@attribute [Authorize]
+@inject ILeaveRequestService LeaveRequestService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>My Requests - Leave Management</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">My Leave Requests</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Href="/requests/new">
+        New Request
+    </MudButton>
+</MudStack>
+
+<MudPaper Class="pa-4">
+    <MudStack Row="true" Class="mb-4" Spacing="2">
+        <MudSelect T="int?" Label="Year" @bind-Value="_selectedYear" Variant="Variant.Outlined" Style="max-width: 150px;">
+            @for (var year = DateTime.Now.Year + 1; year >= DateTime.Now.Year - 2; year--)
+            {
+                <MudSelectItem Value="@((int?)year)">@year</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" OnClick="@LoadRequests">Filter</MudButton>
+    </MudStack>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudTable Items="@_requests" Hover="true" Striped="true" Loading="@_isLoading" LoadingProgressColor="Color.Primary">
+            <HeaderContent>
+                <MudTh>Request #</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh>Start Date</MudTh>
+                <MudTh>End Date</MudTh>
+                <MudTh>Days</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Request #">@context.RequestNumber</MudTd>
+                <MudTd DataLabel="Type">
+                    <MudChip T="string" Size="Size.Small"
+                             Style="@($"background-color: {context.ActivityTypeColor ?? "#2196F3"}; color: white")">
+                        @context.ActivityTypeName
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Start Date">@context.StartDate.ToString("MMM d, yyyy")</MudTd>
+                <MudTd DataLabel="End Date">@context.EndDate.ToString("MMM d, yyyy")</MudTd>
+                <MudTd DataLabel="Days">@context.TotalDays.ToString("0.#")</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.StatusName)">
+                        @context.StatusName
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                                   OnClick="@(() => ViewRequest(context.Id))" />
+                    @if (context.StatusName == "Draft")
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                       OnClick="@(() => EditRequest(context.Id))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Send" Size="Size.Small" Color="Color.Success"
+                                       OnClick="@(() => SubmitRequest(context.Id))" />
+                    }
+                    @if (context.StatusName == "Draft" || context.StatusName == "Pending")
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Cancel" Size="Size.Small" Color="Color.Error"
+                                       OnClick="@(() => CancelRequest(context.Id))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>No leave requests found</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private List<LeaveRequestDto> _requests = new();
+    private bool _isLoading = true;
+    private int? _selectedYear = DateTime.Now.Year;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRequests();
+    }
+
+    private async Task LoadRequests()
+    {
+        _isLoading = true;
+        try
+        {
+            _requests = await LeaveRequestService.GetMyRequestsAsync(_selectedYear);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading requests: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ViewRequest(int id)
+    {
+        Navigation.NavigateTo($"/requests/{id}");
+    }
+
+    private void EditRequest(int id)
+    {
+        Navigation.NavigateTo($"/requests/{id}/edit");
+    }
+
+    private async Task SubmitRequest(int id)
+    {
+        try
+        {
+            await LeaveRequestService.SubmitRequestAsync(id);
+            Snackbar.Add("Request submitted successfully", Severity.Success);
+            await LoadRequests();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error submitting request: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CancelRequest(int id)
+    {
+        try
+        {
+            await LeaveRequestService.CancelRequestAsync(id);
+            Snackbar.Add("Request cancelled", Severity.Info);
+            await LoadRequests();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error cancelling request: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Approved" => Color.Success,
+            "Pending" => Color.Warning,
+            "Rejected" => Color.Error,
+            "Cancelled" => Color.Default,
+            "Draft" => Color.Info,
+            _ => Color.Default
+        };
+    }
+}
