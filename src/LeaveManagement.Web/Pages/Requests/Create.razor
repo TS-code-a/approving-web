@@ -1,0 +1,233 @@
+@page "/requests/new"
+@attribute [Authorize]
+@inject ILeaveRequestService LeaveRequestService
+@inject IActivityTypeService ActivityTypeService
+@inject IUserService UserService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>New Request - Leave Management</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">New Leave Request</MudText>
+
+<MudPaper Class="pa-4">
+    @if (_isLoading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <EditForm Model="@_model" OnValidSubmit="@HandleSubmit">
+            <DataAnnotationsValidator />
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="int" Label="Leave Type" @bind-Value="_model.ActivityTypeId"
+                               Variant="Variant.Outlined" Required="true"
+                               For="@(() => _model.ActivityTypeId)">
+                        @foreach (var type in _activityTypes)
+                        {
+                            <MudSelectItem Value="@type.Id">
+                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                             Style="@($"color: {type.Color ?? "#2196F3"}")"
+                                             Size="Size.Small" />
+                                    <span>@type.Name</span>
+                                </MudStack>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="Start Date" @bind-Date="_startDate"
+                                   Variant="Variant.Outlined" Required="true"
+                                   MinDate="@DateTime.Today" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="End Date" @bind-Date="_endDate"
+                                   Variant="Variant.Outlined" Required="true"
+                                   MinDate="@(_startDate ?? DateTime.Today)" />
+                </MudItem>
+
+                @if (_selectedActivityType?.TimeTrackingMode == 1) @* HalfDay *@
+                {
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="int?" Label="Half Day Period" @bind-Value="_model.HalfDayPeriod"
+                                   Variant="Variant.Outlined">
+                            <MudSelectItem Value="@((int?)0)">Morning</MudSelectItem>
+                            <MudSelectItem Value="@((int?)1)">Afternoon</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                }
+
+                @if (_selectedActivityType?.TimeTrackingMode == 2) @* SpecificHours *@
+                {
+                    <MudItem xs="12" md="3">
+                        <MudTimePicker Label="Start Time" @bind-Time="_startTime"
+                                       Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudTimePicker Label="End Time" @bind-Time="_endTime"
+                                       Variant="Variant.Outlined" />
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_model.Reason" Label="Reason"
+                                  Variant="Variant.Outlined" Lines="3"
+                                  Required="@(_selectedActivityType?.RequiresComment ?? false)" />
+                </MudItem>
+
+                @if (_calculatedDays > 0)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Info">
+                            This request will use <strong>@_calculatedDays.ToString("0.#") days</strong>
+                            @if (_currentBalance != null)
+                            {
+                                <span> (Available: @_currentBalance.AvailableDays.ToString("0.#") days)</span>
+                            }
+                        </MudAlert>
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   ButtonType="ButtonType.Submit" Disabled="@_isSubmitting">
+                            @if (_isSubmitting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            }
+                            Save as Draft
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                   OnClick="@HandleSaveAndSubmit" Disabled="@_isSubmitting">
+                            Save & Submit
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Href="/requests">
+                            Cancel
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    }
+</MudPaper>
+
+@code {
+    private LeaveRequestCreateDto _model = new();
+    private List<ActivityTypeDto> _activityTypes = new();
+    private List<UserBalanceDto> _balances = new();
+    private ActivityTypeDto? _selectedActivityType;
+    private UserBalanceDto? _currentBalance;
+    private bool _isLoading = true;
+    private bool _isSubmitting = false;
+    private bool _submitAfterSave = false;
+    private decimal _calculatedDays = 0;
+
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private TimeSpan? _startTime;
+    private TimeSpan? _endTime;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _activityTypes = await ActivityTypeService.GetActivityTypesAsync();
+            _balances = await UserService.GetMyBalancesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnActivityTypeChanged(int activityTypeId)
+    {
+        _model.ActivityTypeId = activityTypeId;
+        _selectedActivityType = _activityTypes.FirstOrDefault(a => a.Id == activityTypeId);
+        _currentBalance = _balances.FirstOrDefault(b => b.ActivityTypeId == activityTypeId);
+        await CalculateDays();
+    }
+
+    private async Task OnDatesChanged()
+    {
+        await CalculateDays();
+    }
+
+    private async Task CalculateDays()
+    {
+        if (_startDate.HasValue && _endDate.HasValue && _model.ActivityTypeId > 0)
+        {
+            _calculatedDays = await LeaveRequestService.CalculateDaysAsync(
+                _startDate.Value,
+                _endDate.Value,
+                _selectedActivityType?.TimeTrackingMode ?? 0);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        await SaveRequest(false);
+    }
+
+    private async Task HandleSaveAndSubmit()
+    {
+        await SaveRequest(true);
+    }
+
+    private async Task SaveRequest(bool submitAfterSave)
+    {
+        if (!_startDate.HasValue || !_endDate.HasValue)
+        {
+            Snackbar.Add("Please select start and end dates", Severity.Warning);
+            return;
+        }
+
+        _isSubmitting = true;
+
+        try
+        {
+            _model.StartDate = _startDate.Value;
+            _model.EndDate = _endDate.Value;
+            _model.StartTime = _startTime;
+            _model.EndTime = _endTime;
+
+            var created = await LeaveRequestService.CreateRequestAsync(_model);
+
+            if (created != null)
+            {
+                if (submitAfterSave)
+                {
+                    await LeaveRequestService.SubmitRequestAsync(created.Id);
+                    Snackbar.Add("Request created and submitted successfully", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Request saved as draft", Severity.Success);
+                }
+
+                Navigation.NavigateTo("/requests");
+            }
+            else
+            {
+                Snackbar.Add("Failed to create request", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+}

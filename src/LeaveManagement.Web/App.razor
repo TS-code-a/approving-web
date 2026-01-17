@@ -1,0 +1,57 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="_theme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <p class="text-danger">You are not authorized to access this resource.</p>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height: 50vh;">
+                    <MudPaper Class="pa-8 text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Large" Color="Color.Error" />
+                        <MudText Typo="Typo.h5" Class="mt-4">Page Not Found</MudText>
+                        <MudText Typo="Typo.body1" Class="mt-2">Sorry, the page you requested could not be found.</MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" Class="mt-4">
+                            Go to Home
+                        </MudButton>
+                    </MudPaper>
+                </MudContainer>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    private bool _isDarkMode = false;
+    private MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteDark()
+        {
+            Primary = "#1976D2",
+            Secondary = "#424242",
+            AppbarBackground = "#1976D2",
+            Background = "#f5f5f5",
+            DrawerBackground = "#ffffff",
+            DrawerText = "rgba(0,0,0,0.87)",
+            Success = "#4CAF50"
+        }
+    };
+}

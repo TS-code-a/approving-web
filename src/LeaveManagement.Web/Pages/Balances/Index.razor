@@ -1,0 +1,143 @@
+@page "/balances"
+@attribute [Authorize]
+@inject IUserService UserService
+@inject ISnackbar Snackbar
+
+<PageTitle>My Balances - Leave Management</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">My Leave Balances</MudText>
+
+<MudPaper Class="pa-4">
+    <MudStack Row="true" Class="mb-4" Spacing="2">
+        <MudSelect T="int" Label="Year" @bind-Value="_selectedYear" Variant="Variant.Outlined" Style="max-width: 150px;">
+            @for (var year = DateTime.Now.Year + 1; year >= DateTime.Now.Year - 2; year--)
+            {
+                <MudSelectItem Value="@year">@year</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" OnClick="@LoadBalances">View</MudButton>
+    </MudStack>
+
+    @if (_isLoading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!_balances.Any())
+    {
+        <MudAlert Severity="Severity.Info">
+            No balances found for the selected year.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var balance in _balances)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard>
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                             Style="@($"color: {balance.ActivityTypeColor ?? "#2196F3"}")" />
+                                    <MudText Typo="Typo.h6">@balance.ActivityTypeName</MudText>
+                                </MudStack>
+                            </CardHeaderContent>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Total Days</MudText>
+                                    <MudText Typo="Typo.body1"><strong>@balance.TotalDays.ToString("0.#")</strong></MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Used</MudText>
+                                    <MudText Color="Color.Error">@balance.UsedDays.ToString("0.#")</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Pending</MudText>
+                                    <MudText Color="Color.Warning">@balance.PendingDays.ToString("0.#")</MudText>
+                                </MudStack>
+                                @if (balance.CarriedOverDays > 0)
+                                {
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                        <MudText>Carried Over</MudText>
+                                        <MudText Color="Color.Info">+@balance.CarriedOverDays.ToString("0.#")</MudText>
+                                    </MudStack>
+                                }
+                                @if (balance.AdjustmentDays != 0)
+                                {
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                        <MudText>Adjustments</MudText>
+                                        <MudText Color="@(balance.AdjustmentDays > 0 ? Color.Success : Color.Error)">
+                                            @(balance.AdjustmentDays > 0 ? "+" : "")@balance.AdjustmentDays.ToString("0.#")
+                                        </MudText>
+                                    </MudStack>
+                                }
+                                <MudDivider Class="my-2" />
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.subtitle1"><strong>Available</strong></MudText>
+                                    <MudText Typo="Typo.h6" Color="@GetAvailableColor(balance)">
+                                        @balance.AvailableDays.ToString("0.#")
+                                    </MudText>
+                                </MudStack>
+                                <MudProgressLinear Value="@GetUsedPercentage(balance)"
+                                                  Color="@GetProgressColor(balance)"
+                                                  Class="mt-2" />
+                            </MudStack>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudPaper>
+
+@code {
+    private List<UserBalanceDto> _balances = new();
+    private bool _isLoading = true;
+    private int _selectedYear = DateTime.Now.Year;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBalances();
+    }
+
+    private async Task LoadBalances()
+    {
+        _isLoading = true;
+        try
+        {
+            _balances = await UserService.GetMyBalancesAsync(_selectedYear);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading balances: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private double GetUsedPercentage(UserBalanceDto balance)
+    {
+        if (balance.TotalDays == 0) return 0;
+        return Math.Min(100, (double)((balance.UsedDays + balance.PendingDays) / balance.TotalDays) * 100);
+    }
+
+    private Color GetProgressColor(UserBalanceDto balance)
+    {
+        var percentage = GetUsedPercentage(balance);
+        if (percentage >= 90) return Color.Error;
+        if (percentage >= 70) return Color.Warning;
+        return Color.Success;
+    }
+
+    private Color GetAvailableColor(UserBalanceDto balance)
+    {
+        if (balance.AvailableDays <= 0) return Color.Error;
+        if (balance.AvailableDays <= 3) return Color.Warning;
+        return Color.Success;
+    }
+}
